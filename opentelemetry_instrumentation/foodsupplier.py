@@ -67,7 +67,7 @@ def home():
     with tracer.start_as_current_span("food being queiried:" + food_query):
         if (food_query not in suppliers):
             with tracer.start_as_current_span("food item:" + food_query + "Could not be found"):
-                requests_counter.add(25, staging_labels)
+                requests_counter.add(1, staging_labels)
                 time.sleep(5)
                 resp = make_response("Food item not found")
                 return resp
