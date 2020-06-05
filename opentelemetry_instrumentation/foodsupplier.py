@@ -86,5 +86,5 @@ def home():
                 time.sleep(5)
                 return resp
 
-
-app.run()
+if __name__ == '__main__':
+    app.run()
