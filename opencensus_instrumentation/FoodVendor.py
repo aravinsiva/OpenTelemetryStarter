@@ -69,7 +69,11 @@ def home():
         else:
             with tracer.span(name = "Food item not Found") as span:
                 resp = make_response("Food item not found")
+                mmap = stats.stats.stats_recorder.new_measurement_map()
+                mmap.measure_float_put(LATENCY_MS, ms)
+                mmap.record()
                 return resp
+                
         
 
 app.run(host="localhost", port = 8001, debug = True)
