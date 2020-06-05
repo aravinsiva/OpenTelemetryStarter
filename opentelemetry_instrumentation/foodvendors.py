@@ -34,6 +34,12 @@ meter = metrics.get_meter(__name__, True)
 exporter = ConsoleMetricsExporter()
 controller = PushController(meter, exporter, 5)
 
+vend_food_prices = {"eggs" : "$3.99",
+                    "milk" : "$1.50",
+                    "flour" : "$2.50",
+                    "sugar" : "$2.00",
+                    "salt"  :  "2.00"}
+
 
 requests_counter = meter.create_metric(
     name="requests",
@@ -50,24 +56,30 @@ app.config["DEBUG"] = True
 
 FlaskInstrumentor().instrument_app(app)
 
-@app.route('/foodfinder', methods=['GET'])
+@app.route('/foodvendor', methods=['GET'])
 def home():
-        with tracer.start_as_current_span("Calling food supplier service for vendors"):
+        with tracer.start_as_current_span("Searching for food availibility and prices"):
 
             food_query = request.headers.get("food")
-            suppliers = requests.get('http://127.0.0.1:5000/foodsupplier',
-            headers = {'food': food_query})
-
-            price = requests.get('http://localhost:8001/foodvendor',
-            headers = {'food': food_query})
             
-            requests_counter.add(1, staging_labels)
-            time.sleep(5)
+            if food_query in vend_food_prices:
+                with tracer.start_as_current_span("Food item was found"):
 
+                    resp = make_response()
+                    resp.headers[food_query] = vend_food_prices[food_query]
+                    requests_counter.add(1, staging_labels)
+                    time.sleep(5)
+                    return resp
 
-            return (str(suppliers.headers) + '\n' + str(price.headers))
+            else:
+                with tracer.start_as_current_span("Food item was not found"):
 
+                    requests_counter.add(1, staging_labels)
+                    time.sleep(5)
+                    resp = make_response("Food item not found")
+                    requests_counter.add(1, staging_labels)
+                    time.sleep(5)
+                    return resp
+        
 
-
-
-app.run(host="localhost", port = 8000, debug = True)
+app.run(host="localhost", port = 8001, debug = True)
