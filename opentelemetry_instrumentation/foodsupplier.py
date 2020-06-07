@@ -1,11 +1,5 @@
 import flask
 from flask import request, make_response, render_template
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import (
-    ConsoleSpanExporter,
-    SimpleExportSpanProcessor,
-)
 from opentelemetry.ext.flask import FlaskInstrumentor
 from opentelemetry.ext.requests import RequestsInstrumentor
 import time
@@ -32,17 +26,17 @@ def home():
 
         else:
             with tracer.start_as_current_span("food item found!"):
-
-                resp = make_response()
-                stores = "<h3>The food you are looking for is here </h3> \n"
-                count = 1
-                for i in constants.suppliers[food_query]:
-                    resp.headers['Store' + str(count)] = i
-                    stores += i + "\t"
-                    count += 1
                 requests_counter.add(1, constants.staging_labels)
                 time.sleep(5)
-                return resp
+                return make_food_supplier_response(food_query)
+
+def make_food_supplier_response(food_item):
+    resp = make_response()
+    count = 1
+    for i in constants.suppliers[food_item]:
+        resp.headers['Store' + str(count)] = i
+        count += 1
+    return resp
 
 
 app.run()
