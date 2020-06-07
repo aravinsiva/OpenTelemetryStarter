@@ -1,79 +1,50 @@
 import flask
-
-import requests
 from flask import request, make_response
-from random import random
 from opencensus.ext.flask.flask_middleware import FlaskMiddleware
 from opencensus.trace.tracer import Tracer
-from opencensus.trace.samplers import AlwaysOnSampler
-from opencensus.stats import aggregation
-from opencensus.stats import measure
-from opencensus.stats import stats
-from opencensus.stats import view
 from opencensus.ext.zipkin.trace_exporter import ZipkinExporter
 import logging
+import constants
 
-
-vend_food_prices = {"eggs" : "$3.99",
-                    "milk" : "$1.50",
-                    "flour" : "$2.50",
-                    "sugar" : "$2.00",
-                    "salt"  :  "2.00"}
-
-
-
-#app cinfiguration
+# app cinfiguration
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 
-
-
-#latency measurements
-LATENCY_MS = measure.MeasureFloat(
-    "task_latency",
-    "The task latency in milliseconds",
-    "ms")
-
-LATENCY_VIEW = view.View(
-    "task_latency_distribution",
-    "The distribution of the task latencies",
-    [],
-    LATENCY_MS,
-    # Latency in buckets: [>=0ms, >=100ms, >=200ms, >=400ms, >=1s, >=2s, >=4s]
-    aggregation.DistributionAggregation(
-        [100.0, 200.0, 400.0, 1000.0, 2000.0, 4000.0]))
-
-#Setup tracing configurations
+# Setup tracing configurations
 middleware = FlaskMiddleware(app)
 logger = logging.getLogger('Food Supplier')
 
-ze = ZipkinExporter(
-        service_name="service-a",
-        host_name="localhost",
-        port=9411,
-        endpoint="/api/v2/spans")
-tracer = Tracer(exporter=ze)
 
 @app.route('/foodvendor', methods=['GET'])
 def home():
-
     food_query = request.headers.get("food")
-    
-    with tracer.span(name="Looking for food item in static db") as span:
-        if food_query in vend_food_prices:
-            with tracer.span(name = "Food item Found") as span:
-                resp = make_response()
-                resp.headers[food_query] = vend_food_prices[food_query]
-                return resp
+    tracer = Tracer(exporter=create_zipkin_exporter())
+    with tracer.span(name="Looking for food item in static db"):
+        if food_query in constants.vend_food_prices:
+            with tracer.span(name="Food item Found"):
+                constants.make_latency()
+                return get_food_vendor_response(food_query)
 
         else:
-            with tracer.span(name = "Food item not Found") as span:
+            with tracer.span(name="Food item not Found"):
                 resp = make_response("Food item not found")
-                mmap = stats.stats.stats_recorder.new_measurement_map()
-                mmap.measure_float_put(LATENCY_MS, ms)
-                mmap.record()
+                constants.make_latency()
                 return resp
-                
-        
 
-app.run(host="localhost", port = 8001, debug = True)
+
+def get_food_vendor_response(food_item):
+    resp = make_response()
+    resp.headers[food_item] = constants.vend_food_prices[food_item]
+    return resp
+
+
+def create_zipkin_exporter():
+    ze = ZipkinExporter(
+        service_name="Food Vendor Service",
+        host_name="localhost",
+        port=9411,
+        endpoint="/foodvendor/spans")
+    return ze
+
+
+app.run(host="localhost", port=8001, debug=True)
